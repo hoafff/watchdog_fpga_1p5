@@ -1,0 +1,31 @@
+// Kiwi 1P5 watchdog demo constraints
+// Board references used:
+// - clk_27m      -> SYS_CLK / FPGA pin 4   (per project README handoff)
+// - btn_wdi_n    -> IOR1B  / FPGA pin 35
+// - btn_en_n     -> IOR1A  / FPGA pin 36
+// - uart_tx_o    -> IOR11A / FPGA pin 34
+// - uart_rx_i    -> IOR11B / FPGA pin 33
+// - led_wdo_o    -> IOR17A / FPGA pin 27
+// - led_enout_o  -> IOR15B / FPGA pin 28
+// Avoid special pins such as JTAGSEL_N (IOT15A) and RECONFIG_N (IOT15B).
+
+IO_LOC  "clk_27m"     4;
+IO_PORT "clk_27m"     IO_TYPE=LVCMOS33;
+
+IO_LOC  "btn_wdi_n"   35;
+IO_PORT "btn_wdi_n"   IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+IO_LOC  "btn_en_n"    36;
+IO_PORT "btn_en_n"    IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+IO_LOC  "uart_tx_o"   34;
+IO_PORT "uart_tx_o"   IO_TYPE=LVCMOS33 DRIVE=8;
+
+IO_LOC  "uart_rx_i"   33;
+IO_PORT "uart_rx_i"   IO_TYPE=LVCMOS33;
+
+IO_LOC  "led_wdo_o"   27;
+IO_PORT "led_wdo_o"   IO_TYPE=LVCMOS33 DRIVE=8;
+
+IO_LOC  "led_enout_o" 28;
+IO_PORT "led_enout_o" IO_TYPE=LVCMOS33 DRIVE=8;

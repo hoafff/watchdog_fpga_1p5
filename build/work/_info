@@ -1,0 +1,270 @@
+m255
+K4
+z2
+13
+!s112 1.1
+!i10d 8192
+!i10e 25
+!i10f 100
+cModel Technology
+Z0 dE:/20252/cuoc_thi_fpga/run_fpga/build
+T_opt
+Z1 !s110 1776588970
+V1<^]1P[C]3e2]ZWzS2?ML3
+04 6 4 work tb_top fast 0
+=1-14755baa550f-69e498aa-2d2-4e2c
+o-quiet -auto_acc_if_foreign -work work
+Z2 tCvgOpt 0
+n@_opt
+OL;O;10.7c;67
+vbutton_conditioner
+Z3 DXx6 sv_std 3 std 0 22 d=_JfHTnXCN[H5FjiaJJc0
+R1
+!i10b 1
+!s100 HWI2D?0gc@l]WKE;@n^3W3
+I;9cKRB0;hKfFFe<iMZ>Sf3
+Z4 VDg1SIo80bB@j0V0VzS_@n1
+!s105 button_conditioner_v_unit
+S1
+R0
+Z5 w1776520657
+8../rtl/button_conditioner.v
+F../rtl/button_conditioner.v
+L0 1
+Z6 OL;L;10.7c;67
+r1
+!s85 0
+31
+Z7 !s108 1776588970.000000
+Z8 !s107 ../tb/tb_tasks.svh|../tb/tb_top.sv|../tb/tb_uart_host.sv|../rtl/top_watchdog_kiwi1p5.v|../rtl/uart_protocol.v|../rtl/uart_tx.v|../rtl/uart_rx.v|../rtl/regfile.v|../rtl/watchdog_core.v|../rtl/button_conditioner.v|../rtl/timebase_gen.v|
+Z9 !s90 -reportprogress|300|-sv|+incdir+../tb|../rtl/timebase_gen.v|../rtl/button_conditioner.v|../rtl/watchdog_core.v|../rtl/regfile.v|../rtl/uart_rx.v|../rtl/uart_tx.v|../rtl/uart_protocol.v|../rtl/top_watchdog_kiwi1p5.v|../tb/tb_uart_host.sv|../tb/tb_top.sv|
+!i113 0
+Z10 o-sv -L mtiAvm -L mtiRnm -L mtiOvm -L mtiUvm -L mtiUPF -L infact
+Z11 !s92 -sv +incdir+../tb -L mtiAvm -L mtiRnm -L mtiOvm -L mtiUvm -L mtiUPF -L infact
+R2
+vregfile
+R3
+R1
+!i10b 1
+!s100 <P^a57:YWWT:7>>VoWe7a2
+I>PWDKimA2c5RK6iFcXlAZ1
+R4
+!s105 regfile_v_unit
+S1
+R0
+R5
+8../rtl/regfile.v
+F../rtl/regfile.v
+L0 1
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 0
+R10
+R11
+R2
+vtb_top
+R3
+R1
+!i10b 1
+!s100 4:4ODDW6WU7DLCfdUSl[O2
+I;PS0^m?[_3IRVYak?b_1M2
+R4
+!s105 tb_top_sv_unit
+S1
+R0
+w1776587808
+8../tb/tb_top.sv
+F../tb/tb_top.sv
+F../tb/tb_tasks.svh
+L0 3
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 0
+R10
+R11
+R2
+vtb_uart_host
+R3
+R1
+!i10b 1
+!s100 @6jXl6I`Ma4hIg_>dCL@^1
+IS9L<lV[MELgL_9L^3<[am0
+R4
+!s105 tb_uart_host_sv_unit
+S1
+R0
+w1776587784
+8../tb/tb_uart_host.sv
+F../tb/tb_uart_host.sv
+L0 1
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 0
+R10
+R11
+R2
+vtimebase_gen
+R3
+R1
+!i10b 1
+!s100 ]XAWZH9i11E7T31T3S3U@2
+IN2YRoBGhFGJn_aU`Dje2S3
+R4
+!s105 timebase_gen_v_unit
+S1
+R0
+R5
+8../rtl/timebase_gen.v
+F../rtl/timebase_gen.v
+L0 1
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 0
+R10
+R11
+R2
+vtop_watchdog_kiwi1p5
+R3
+R1
+!i10b 1
+!s100 0?IT;QBjhBBV:0WJ2i[>`0
+I]mzhBXBRQ^cXA@@k@460C0
+R4
+!s105 top_watchdog_kiwi1p5_v_unit
+S1
+R0
+w1776520843
+8../rtl/top_watchdog_kiwi1p5.v
+F../rtl/top_watchdog_kiwi1p5.v
+L0 1
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 0
+R10
+R11
+R2
+vuart_protocol
+R3
+R1
+!i10b 1
+!s100 g4L<1_neNoe9dOF<=iXn=0
+IfO>8ET;VWMK2o?5X494i?1
+R4
+!s105 uart_protocol_v_unit
+S1
+R0
+w1776588808
+8../rtl/uart_protocol.v
+F../rtl/uart_protocol.v
+L0 1
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 0
+R10
+R11
+R2
+vuart_rx
+R3
+R1
+!i10b 1
+!s100 8WCmJC]8V_7m?^ID0Y`MP0
+IlVgaz``d5gce7>>>KIEi02
+R4
+!s105 uart_rx_v_unit
+S1
+R0
+w1776520798
+8../rtl/uart_rx.v
+F../rtl/uart_rx.v
+L0 1
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 0
+R10
+R11
+R2
+vuart_tx
+R3
+R1
+!i10b 1
+!s100 Xd[4RS1K5i=D9]XK=65HW3
+IV0o8Z0TddFmC_lgS262eb1
+R4
+!s105 uart_tx_v_unit
+S1
+R0
+w1776520822
+8../rtl/uart_tx.v
+F../rtl/uart_tx.v
+L0 1
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 0
+R10
+R11
+R2
+vwatchdog_core
+R3
+R1
+!i10b 1
+!s100 [k]C[z@k;kXelf@V^D08J0
+IP5jLH9U7JXF0PS?6SR>In0
+R4
+!s105 watchdog_core_v_unit
+S1
+R0
+R5
+8../rtl/watchdog_core.v
+F../rtl/watchdog_core.v
+L0 1
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 0
+R10
+R11
+R2
