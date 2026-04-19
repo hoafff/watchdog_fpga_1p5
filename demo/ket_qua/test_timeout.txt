@@ -1,0 +1,44 @@
+
+E:\20252\cuoc_thi_fpga\run_fpga\demo>python uart_demo.py --port COM9 setcfg --twd-ms 1000 --trst-ms 3000 --arm-us 150
+TX: 55 01 04 04 00 00 03 E8 EA
+RX: 55 81 10 04 00 00 00 1D 88
+tWD_ms set to 1000
+TX: 55 01 08 04 00 00 0B B8 BE
+RX: 55 81 10 04 00 00 00 1D 88
+tRST_ms set to 3000
+TX: 55 01 0C 02 00 96 99
+RX: 55 81 10 04 00 00 00 1D 88
+arm_delay_us set to 150
+TX: 55 04 10 00 14
+RX: 55 84 10 04 00 00 00 1D 8D
+STATUS = 0x0000001D
+  EN_EFFECTIVE : 1
+  FAULT_ACTIVE : 0
+  ENOUT        : 1
+  WDO          : 1
+  LAST_KICK_SRC: 1 (uart)
+
+E:\20252\cuoc_thi_fpga\run_fpga\demo>python uart_demo.py --port COM9 enable_uart
+TX: 55 01 00 04 00 00 00 03 06
+RX: 55 81 10 04 00 00 00 17 82
+Enabled: uart source
+STATUS = 0x00000017
+  EN_EFFECTIVE : 1
+  FAULT_ACTIVE : 1
+  ENOUT        : 1
+  WDO          : 0
+  LAST_KICK_SRC: 1 (uart)
+
+E:\20252\cuoc_thi_fpga\run_fpga\demo>timeout /t 2 /nobreak >nul
+
+E:\20252\cuoc_thi_fpga\run_fpga\demo>python uart_demo.py --port COM9 status
+TX: 55 04 10 00 14
+RX: 55 84 10 04 00 00 00 17 87
+STATUS = 0x00000017
+  EN_EFFECTIVE : 1
+  FAULT_ACTIVE : 1
+  ENOUT        : 1
+  WDO          : 0
+  LAST_KICK_SRC: 1 (uart)
+
+E:\20252\cuoc_thi_fpga\run_fpga\demo>
