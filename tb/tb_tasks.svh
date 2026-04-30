@@ -99,4 +99,32 @@
         end
     endtask
 
+
+    task automatic uart_kick_expect_not_allow;
+        begin
+            host.uart_send_frame(8'h03, 8'h00, 8'd0, 8'h00, 8'h00, 8'h00, 8'h00);
+            host.rx_expect_err_frame(8'h03, 8'h06);
+        end
+    endtask
+
+    task automatic uart_read_bad_addr_expect_err(input byte addr);
+        begin
+            host.uart_send_frame(8'h02, addr, 8'd0, 8'h00, 8'h00, 8'h00, 8'h00);
+            host.rx_expect_err_frame(8'h02, 8'h04);
+        end
+    endtask
+
+    task automatic uart_write_bad_len_expect_err(input byte addr);
+        begin
+            host.uart_send_frame(8'h01, addr, 8'd2, 8'h00, 8'h01, 8'h00, 8'h00);
+            host.rx_expect_err_frame(8'h01, 8'h02);
+        end
+    endtask
+
+    task automatic uart_write_zero_timeout_expect_err(input byte addr);
+        begin
+            host.uart_send_frame(8'h01, addr, 8'd4, 8'h00, 8'h00, 8'h00, 8'h00);
+            host.rx_expect_err_frame(8'h01, 8'h05);
+        end
+    endtask
 `endif

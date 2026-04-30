@@ -51,8 +51,8 @@ ERR_CODES = {
     0x04: "invalid address",
     0x05: "invalid access",
     0x06: "source not enabled / command not allowed in current mode",
+    0x07: "uart frame error",
 }
-
 
 def xor_checksum(data: bytes) -> int:
     chk = 0
@@ -189,7 +189,7 @@ class WatchdogUart:
         return rsp
 
     def read_reg(self, addr: int, width: int) -> int:
-        rsp = self.transact(CMD_READ_REG, addr, bytes([width]))
+        rsp = self.transact(CMD_READ_REG, addr, b"")
         if not rsp.ok:
             raise RuntimeError(f"READ_REG error: {ERR_CODES.get(rsp.error_code, rsp.error_code)}")
         if len(rsp.payload) != width:

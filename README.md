@@ -51,6 +51,8 @@ Lý do chọn cách này:
 Ý nghĩa:
 - sau reset, watchdog ở trạng thái disable an toàn vì `EN_SW=0`
 - sau khi software bật `EN_SW=1`, watchdog chỉ thực sự chạy khi nút S2 ở trạng thái cho phép
+- logic `EN` của watchdog là **active-high**: `EN_EFFECTIVE=1` mới enable
+- chữ **active-low** của S2 chỉ mô tả nút vật lý trên board: nhấn S2 = `0` = disable path, thả S2 = `1` = cho phép enable
 
 ### 3.4 Quy ước chọn nguồn kick
 - `CTRL.WDI_SRC = 0`: nhận kick từ **button S1**
@@ -191,12 +193,20 @@ Trong đó:
 - `0x04` = invalid address
 - `0x05` = invalid access
 - `0x06` = command not allowed / source not enabled
+- `0x07` = UART frame error
 
 ### 7.6 Quy ước lệnh
 - `WRITE_REG`: ghi thanh ghi, phản hồi bằng `STATUS`
 - `READ_REG`: đọc giá trị đúng theo địa chỉ
 - `KICK`: chỉ hợp lệ khi `WDI_SRC = UART`
 - `GET_STATUS`: trả nhanh `STATUS`
+
+### 7.7 Robustness UART
+- `uart_rx` đồng bộ RX bằng 2 flip-flop trước khi detect/sample bit
+- lỗi stop bit được đưa lên `rx_frame_err` và protocol trả `ERR_UART_FRAME`
+- frame parser có inter-byte timeout mặc định 20 ms để không kẹt FSM khi host gửi frame dở dang
+- protocol dùng kiểu request-response half-duplex: host nên đợi response xong rồi mới gửi frame tiếp
+- `tWD_ms=0` và `tRST_ms=0` bị reject bằng `ERR_BAD_ACCESS` để tránh cấu hình vô nghĩa
 
 ---
 
@@ -251,22 +261,25 @@ do scripts/run_questa.do
 ---
 
 ## 10. Kết quả verification
-Testbench hiện tại bao phủ **8 case**:
+Testbench hiện tại bao phủ **12 case**:
 
 1. reset default
-2. enable và arm delay
+2. enable, arm delay, và kiểm tra WDI bị ignore trong arm_delay
 3. normal kick bằng button
 4. timeout và fault hold
 5. disable giữa chừng
-6. UART write/read register
-7. UART KICK + GET_STATUS
-8. CLR_FAULT + protocol error
+6. UART error paths: KICK không đúng source, bad addr, bad len, zero timeout
+7. UART write/read register
+8. UART KICK + GET_STATUS
+9. thay đổi `tWD_ms` qua UART và kiểm tra timeout thực tế
+10. disable khi đang fault active
+11. CLR_FAULT
+12. checksum error
 
 ### Trạng thái hiện tại
-- Compile: **pass**
-- Simulation: **pass**
-- Kết quả: **all 8 cases pass trên QuestaSim**
-
+- Compile: PASS trên QuestaSim 10.7c
+- Simulation: PASS, all 12 cases pass
+- RTL testbench đã kiểm tra reset, arm_delay, normal kick, timeout, disable, UART read/write, UART kick, CLR_FAULT và error paths
 ---
 
 ## 11. Lưu ý triển khai

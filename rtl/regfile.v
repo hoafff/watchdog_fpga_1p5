@@ -84,11 +84,19 @@ module regfile #(
                     end
 
                     ADDR_TWD_MS: begin
-                        twd_ms_o <= wdata_i;
+                        if (wdata_i != 32'd0) begin
+                            twd_ms_o <= wdata_i;
+                        end else begin
+                            access_err_o <= 1'b1;
+                        end
                     end
 
                     ADDR_TRST_MS: begin
-                        trst_ms_o <= wdata_i;
+                        if (wdata_i != 32'd0) begin
+                            trst_ms_o <= wdata_i;
+                        end else begin
+                            access_err_o <= 1'b1;
+                        end
                     end
 
                     ADDR_ARM_DELAY: begin

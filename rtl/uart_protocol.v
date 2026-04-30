@@ -1,8 +1,12 @@
-module uart_protocol (
+module uart_protocol #(
+    parameter integer CLK_HZ           = 27000000,
+    parameter integer FRAME_TIMEOUT_MS = 20
+) (
     input  wire        clk,
     input  wire        rst_n,
     input  wire [7:0]  rx_data_i,
     input  wire        rx_valid_i,
+    input  wire        rx_frame_err_i,
     input  wire        tx_busy_i,
 
     input  wire        en_sw_i,
@@ -37,6 +41,7 @@ module uart_protocol (
     localparam [7:0] ERR_BAD_ADDR   = 8'h04;
     localparam [7:0] ERR_BAD_ACCESS = 8'h05;
     localparam [7:0] ERR_NOT_ALLOW  = 8'h06;
+    localparam [7:0] ERR_UART_FRAME = 8'h07;
 
     localparam [7:0] ADDR_CTRL      = 8'h00;
     localparam [7:0] ADDR_TWD_MS    = 8'h04;
@@ -51,6 +56,9 @@ module uart_protocol (
     localparam [2:0] RX_DATA  = 3'd4;
     localparam [2:0] RX_CHK   = 3'd5;
 
+    localparam integer FRAME_TIMEOUT_CLKS_RAW = (CLK_HZ / 1000) * FRAME_TIMEOUT_MS;
+    localparam integer FRAME_TIMEOUT_CLKS     = (FRAME_TIMEOUT_CLKS_RAW < 1) ? 1 : FRAME_TIMEOUT_CLKS_RAW;
+
     reg [2:0] rx_state_r;
     reg [7:0] rx_cmd_r;
     reg [7:0] rx_addr_r;
@@ -58,6 +66,7 @@ module uart_protocol (
     reg [7:0] rx_chk_xor_r;
     reg [2:0] rx_data_idx_r;
     reg [7:0] rx_payload_r [0:3];
+    reg [31:0] rx_timeout_cnt_r;
 
     reg [7:0] resp_buf_r [0:8];
     reg [3:0] resp_len_r;
@@ -219,6 +228,7 @@ module uart_protocol (
             rx_len_r                  <= 8'd0;
             rx_chk_xor_r              <= 8'd0;
             rx_data_idx_r             <= 3'd0;
+            rx_timeout_cnt_r          <= 32'd0;
             tx_data_o                 <= 8'd0;
             tx_start_o                <= 1'b0;
             wr_en_o                   <= 1'b0;
@@ -247,7 +257,23 @@ module uart_protocol (
             wr_en_o           <= 1'b0;
             uart_kick_pulse_o <= 1'b0;
 
-            if (pending_resp_valid_r && !resp_active_r) begin
+            if (rx_state_r == RX_IDLE || rx_valid_i || rx_frame_err_i) begin
+                rx_timeout_cnt_r <= 32'd0;
+            end else if (!resp_active_r && !pending_resp_valid_r) begin
+                if (rx_timeout_cnt_r >= (FRAME_TIMEOUT_CLKS - 1)) begin
+                    prepare_err_response(rx_cmd_r, ERR_BAD_LEN);
+                    rx_state_r       <= RX_IDLE;
+                    rx_timeout_cnt_r <= 32'd0;
+                end else begin
+                    rx_timeout_cnt_r <= rx_timeout_cnt_r + 32'd1;
+                end
+            end
+
+            if (rx_frame_err_i && !resp_active_r && !pending_resp_valid_r) begin
+                prepare_err_response((rx_state_r == RX_IDLE) ? 8'h00 : rx_cmd_r, ERR_UART_FRAME);
+                rx_state_r       <= RX_IDLE;
+                rx_timeout_cnt_r <= 32'd0;
+            end else if (pending_resp_valid_r && !resp_active_r) begin
                 if (pending_resp_delay_r != 2'd0) begin
                     pending_resp_delay_r <= pending_resp_delay_r - 2'd1;
                 end else begin
@@ -269,12 +295,16 @@ module uart_protocol (
                     pending_resp_valid_r <= 1'b0;
                 end
             end else if (!resp_active_r && rx_valid_i) begin
+                rx_timeout_cnt_r <= 32'd0;
                 case (rx_state_r)
                     RX_IDLE: begin
                         if (rx_data_i == 8'h55) begin
                             rx_state_r    <= RX_CMD;
                             rx_chk_xor_r  <= 8'd0;
                             rx_data_idx_r <= 3'd0;
+                        end else begin
+                            prepare_err_response(8'h00, ERR_BAD_SYNC);
+                            rx_state_r <= RX_IDLE;
                         end
                     end
 
@@ -333,10 +363,15 @@ module uart_protocol (
                                         end else if (rx_len_r == 8'd2) begin
                                             tmp_wdata_r = {16'd0, rx_payload_r[0], rx_payload_r[1]};
                                         end
-                                        wr_addr_o <= rx_addr_r;
-                                        wr_data_o <= tmp_wdata_r;
-                                        wr_en_o   <= 1'b1;
-                                        schedule_ok_response(8'h81, ADDR_STATUS, 8'd4, 32'd0, 1'b1, 2'd2);
+
+                                        if (((rx_addr_r == ADDR_TWD_MS) || (rx_addr_r == ADDR_TRST_MS)) && (tmp_wdata_r == 32'd0)) begin
+                                            prepare_err_response(rx_cmd_r, ERR_BAD_ACCESS);
+                                        end else begin
+                                            wr_addr_o <= rx_addr_r;
+                                            wr_data_o <= tmp_wdata_r;
+                                            wr_en_o   <= 1'b1;
+                                            schedule_ok_response(8'h81, ADDR_STATUS, 8'd4, 32'd0, 1'b1, 2'd2);
+                                        end
                                     end
                                 end
 

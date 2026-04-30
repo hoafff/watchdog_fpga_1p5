@@ -155,11 +155,15 @@ module top_watchdog_kiwi1p5 #(
         .frame_err_o(rx_frame_err_w)
     );
 
-    uart_protocol u_uart_protocol (
+    uart_protocol #(
+        .CLK_HZ          (CLK_HZ),
+        .FRAME_TIMEOUT_MS(20)
+    ) u_uart_protocol (
         .clk              (clk_27m),
         .rst_n            (rst_n_r),
         .rx_data_i        (rx_data_w),
         .rx_valid_i       (rx_valid_w),
+        .rx_frame_err_i   (rx_frame_err_w),
         .tx_busy_i        (tx_busy_w),
         .en_sw_i          (reg_en_sw_w),
         .wdi_src_i        (reg_wdi_src_w),

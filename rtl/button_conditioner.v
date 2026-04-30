@@ -9,7 +9,8 @@ module button_conditioner #(
     output reg  falling_edge_o
 );
 
-    localparam integer DEBOUNCE_CYCLES = (CLK_HZ / 1000) * DEBOUNCE_MS;
+    localparam integer DEBOUNCE_CYCLES_RAW = (CLK_HZ / 1000) * DEBOUNCE_MS;
+    localparam integer DEBOUNCE_CYCLES     = (DEBOUNCE_CYCLES_RAW < 1) ? 1 : DEBOUNCE_CYCLES_RAW;
 
     reg sync_ff1;
     reg sync_ff2;

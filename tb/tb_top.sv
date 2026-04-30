@@ -65,7 +65,7 @@ module tb_top;
         check_reset_defaults();
         $display("[TB] Case1 pass");
 
-        // Case 2: enable -> arm_delay -> MONITOR
+        // Case 2: enable -> arm_delay -> MONITOR, WDI ignored during arm_delay
         $display("[TB] Case2 start");
 
         uart_write32(8'h04, 32'd80);
@@ -78,6 +78,13 @@ module tb_top;
 
         if (dut.enout_logic_w !== 1'b0)
             $fatal(1, "Case2 ENOUT asserted too early");
+
+        wait_ms(5);
+        press_btn_wdi();
+        if (dut.wd_state_w !== 2'd1)
+            $fatal(1, "Case2 WDI during arm_delay was not ignored");
+        if (dut.enout_logic_w !== 1'b0)
+            $fatal(1, "Case2 ENOUT asserted after ignored arm_delay kick");
 
         fork
             begin
@@ -133,6 +140,14 @@ module tb_top;
             $fatal(1, "Case5 ENOUT not low after disable");
         $display("[TB] Case5 pass");
 
+        // Case 6: UART error paths while WDI source is still button
+        uart_kick_expect_not_allow();
+        uart_read_bad_addr_expect_err(8'h20);
+        uart_write_bad_len_expect_err(8'h04);
+        uart_write_zero_timeout_expect_err(8'h04);
+        uart_write_zero_timeout_expect_err(8'h08);
+        $display("[TB] Case6 pass");
+
         // Re-enable with UART source
         uart_write32(8'h00, 32'h0000_0003);
         release_btn_en();
@@ -154,41 +169,82 @@ module tb_top;
         if (dut.enout_logic_w !== 1'b1)
             $fatal(1, "Re-enable ENOUT not asserted");
 
-        // Case 6: UART read/write reg with payload checking
-        uart_write32(8'h04, 32'd12);
-        uart_read_expect32(8'h04, 32'd12);
-        uart_write32(8'h08, 32'd50);
-        uart_read_expect32(8'h08, 32'd50);
-        uart_write16(8'h0C, 16'd25);
-        uart_read_expect16(8'h0C, 16'd25);
-        $display("[TB] Case6 pass");
+        // Case 7: UART read/write reg with payload checking
+// Use a tWD value large enough to cover multiple UART command/response frames at 9600 bps.
+uart_write32(8'h04, 32'd200);
+uart_read_expect32(8'h04, 32'd200);
+uart_write32(8'h08, 32'd50);
+uart_read_expect32(8'h08, 32'd50);
+uart_write16(8'h0C, 16'd25);
+uart_read_expect16(8'h0C, 16'd25);
+$display("[TB] Case7 pass");
 
-        // Case 7: UART KICK + GET_STATUS
+        // Case 8: UART KICK + GET_STATUS
         uart_kick_expect_ok();
         wait_ms(1);
         if (dut.last_kick_src_w !== 1'b1)
-            $fatal(1, "Case7 LAST_KICK_SRC not UART");
+            $fatal(1, "Case8 LAST_KICK_SRC not UART");
         uart_get_status_expect_ok();
-        $display("[TB] Case7 pass");
+        $display("[TB] Case8 pass");
 
-        // Case 8: CLR_FAULT + checksum error
+        // Case 9: programmed tWD_ms affects real timeout timing
+// Re-kick here so the timing measurement starts from a known point.
+// uart_kick_expect_ok() itself takes several ms because the response is serialized over UART.
+uart_kick_expect_ok();
+
+wait_ms(100);
+if (dut.fault_active_w !== 1'b0)
+    $fatal(1, "Case9 fault asserted before programmed tWD_ms");
+
+wait_ms(120);
+if (dut.fault_active_w !== 1'b1)
+    $fatal(1, "Case9 fault did not assert after programmed tWD_ms");
+
+$display("[TB] Case9 pass");
+
+        // Case 10: disable while fault is active releases WDO and ENOUT
+        hold_btn_en_low();
+        if (dut.wd_state_w !== 2'd0)
+            $fatal(1, "Case10 disable during fault did not enter DISABLED");
+        if (dut.wdo_logic_w !== 1'b1)
+            $fatal(1, "Case10 WDO not released after disable during fault");
+        if (dut.enout_logic_w !== 1'b0)
+            $fatal(1, "Case10 ENOUT not low after disable during fault");
+        $display("[TB] Case10 pass");
+
+        // Re-enable again for CLR_FAULT test
+        release_btn_en();
+        fork
+            begin
+                wait (dut.wd_state_w == 2'd2);
+            end
+            begin
+                wait_ms(20);
+                $fatal(1, "Re-enable before Case11 timeout waiting for MONITOR");
+            end
+        join_any
+        disable fork;
+
+        uart_kick_expect_ok();
         wait_ms(dut.reg_twd_ms_w + 5);
         if (dut.fault_active_w !== 1'b1)
-            $fatal(1, "Case8 expected fault before clear");
+            $fatal(1, "Case11 expected fault before clear");
 
+        // Case 11: CLR_FAULT clears WDO immediately
         host.uart_send_frame(8'h01, 8'h00, 8'd4, 8'h00, 8'h00, 8'h00, 8'h07);
         @(posedge clk_27m);
         host.rx_expect_ok_frame32(8'h81, 8'h10, dut_status_word());
 
         wait_ms(1);
         if (dut.fault_active_w !== 1'b0)
-            $fatal(1, "Case8 CLR_FAULT did not clear");
-
+            $fatal(1, "Case11 CLR_FAULT did not clear");
         uart_get_status_expect_ok();
+        $display("[TB] Case11 pass");
 
+        // Case 12: checksum error response
         host.uart_send_frame_bad_chk(8'h04, 8'h10, 8'd0, 8'h00, 8'h00, 8'h00, 8'h00);
         host.rx_expect_err_frame(8'h04, 8'h03);
-        $display("[TB] Case8 pass");
+        $display("[TB] Case12 pass");
 
         $display("[TB] all cases pass");
         #10000;

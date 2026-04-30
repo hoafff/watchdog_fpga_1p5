@@ -23,6 +23,11 @@ module uart_rx #(
     reg [2:0]  bit_idx_r;
     reg [7:0]  shift_r;
 
+    // UART RX is asynchronous to the FPGA clock. Synchronize it before
+    // start-bit detection and sampling to reduce metastability risk.
+    reg rx_meta_r;
+    reg rx_sync_r;
+
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state_r     <= ST_IDLE;
@@ -32,7 +37,11 @@ module uart_rx #(
             data_o      <= 8'd0;
             valid_o     <= 1'b0;
             frame_err_o <= 1'b0;
+            rx_meta_r   <= 1'b1;
+            rx_sync_r   <= 1'b1;
         end else begin
+            rx_meta_r   <= rx_i;
+            rx_sync_r   <= rx_meta_r;
             valid_o     <= 1'b0;
             frame_err_o <= 1'b0;
 
@@ -40,7 +49,7 @@ module uart_rx #(
                 ST_IDLE: begin
                     baud_cnt_r <= 16'd0;
                     bit_idx_r  <= 3'd0;
-                    if (rx_i == 1'b0) begin
+                    if (rx_sync_r == 1'b0) begin
                         state_r    <= ST_START;
                         baud_cnt_r <= 16'd0;
                     end
@@ -48,7 +57,7 @@ module uart_rx #(
 
                 ST_START: begin
                     if (baud_cnt_r >= (CLKS_HALF_BIT - 1)) begin
-                        if (rx_i == 1'b0) begin
+                        if (rx_sync_r == 1'b0) begin
                             state_r    <= ST_DATA;
                             baud_cnt_r <= 16'd0;
                             bit_idx_r  <= 3'd0;
@@ -62,8 +71,8 @@ module uart_rx #(
 
                 ST_DATA: begin
                     if (baud_cnt_r >= (CLKS_PER_BIT - 1)) begin
-                        baud_cnt_r         <= 16'd0;
-                        shift_r[bit_idx_r] <= rx_i;
+                        baud_cnt_r           <= 16'd0;
+                        shift_r[bit_idx_r]   <= rx_sync_r;
                         if (bit_idx_r == 3'd7) begin
                             state_r <= ST_STOP;
                         end else begin
@@ -78,7 +87,7 @@ module uart_rx #(
                     if (baud_cnt_r >= (CLKS_PER_BIT - 1)) begin
                         state_r    <= ST_IDLE;
                         baud_cnt_r <= 16'd0;
-                        if (rx_i == 1'b1) begin
+                        if (rx_sync_r == 1'b1) begin
                             data_o  <= shift_r;
                             valid_o <= 1'b1;
                         end else begin
