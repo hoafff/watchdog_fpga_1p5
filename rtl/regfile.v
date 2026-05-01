@@ -67,7 +67,11 @@ module regfile #(
             rd_ack_o          <= 1'b0;
             access_err_o      <= 1'b0;
         end else begin
-            clr_fault_pulse_o <= 1'b0;
+            // Tự động hạ xung clear khi watchdog core đã xác nhận xóa cờ fault
+            if (!fault_active_i) begin
+                clr_fault_pulse_o <= 1'b0;
+            end
+
             wr_ack_o          <= 1'b0;
             rd_ack_o          <= 1'b0;
             access_err_o      <= 1'b0;

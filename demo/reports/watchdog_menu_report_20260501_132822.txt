@@ -1,0 +1,40 @@
+BÁO CÁO TEST WATCHDOG KIWI 1P5
+=============================================
+Thời gian: 2026-05-01 13:28:22
+Port    : COM9
+Baud    : 9600
+tWD_ms  : 2000
+tRST_ms : 2000
+arm_us  : 150
+
+CHECKLIST:
+- Kết nối UART: PASS
+  Đọc được STATUS=0x00000008
+- Ghi cấu hình thời gian: PASS
+  tWD=2000 ms, tRST=2000 ms, arm=150 us
+- Đọc trạng thái: PASS
+  STATUS=0x00000018
+- Demo nút S1/S2: PASS
+  Người dùng xác nhận từ board
+- UART kick không timeout: PASS
+  Kick UART giữ watchdog an toàn
+- Dừng kick sinh fault: PASS
+  Dừng kick thì sinh fault đúng
+- Xóa fault: PASS
+  CTRL=0x00000004
+- Disable watchdog: PASS
+  Watchdog disabled
+
+LOG:
+[13:21:44] Kết nối UART: PASS - Đọc được STATUS=0x00000008
+[13:21:47] Đọc trạng thái: PASS - STATUS=0x00000008
+[13:24:24] Demo nút S1/S2: PASS - Người dùng xác nhận từ board
+[13:24:42] UART kick không timeout: PASS - Kick UART giữ watchdog an toàn
+[13:24:43] Dừng kick sinh fault: FAIL - STATUS=0x0000001D
+[13:25:32] Xóa fault: PASS - CTRL=0x00000004
+[13:25:51] Đọc trạng thái: PASS - STATUS=0x00000018
+[13:26:19] Ghi cấu hình thời gian: PASS - tWD=200 ms, tRST=200 ms, arm=150 us
+[13:26:33] Ghi cấu hình thời gian: PASS - tWD=2000 ms, tRST=2000 ms, arm=150 us
+[13:26:50] UART kick không timeout: PASS - Kick UART giữ watchdog an toàn
+[13:26:52] Dừng kick sinh fault: PASS - Dừng kick thì sinh fault đúng
+[13:27:16] Disable watchdog: PASS - Watchdog disabled

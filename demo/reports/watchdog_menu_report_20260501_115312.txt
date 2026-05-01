@@ -1,0 +1,22 @@
+BÁO CÁO TEST WATCHDOG KIWI 1P5
+=============================================
+Thời gian: 2026-05-01 11:53:12
+Port    : 9
+Baud    : 9600
+tWD_ms  : 2000
+tRST_ms : 2000
+arm_us  : 150
+
+CHECKLIST:
+- Kết nối UART: FAIL
+  could not open port '9': FileNotFoundError(2, 'The system cannot find the file specified.', None, 2)
+- Ghi cấu hình thời gian: CHƯA CHẠY
+- Đọc trạng thái: CHƯA CHẠY
+- Demo nút S1/S2: CHƯA CHẠY
+- UART kick không timeout: CHƯA CHẠY
+- Dừng kick sinh fault: CHƯA CHẠY
+- Xóa fault: CHƯA CHẠY
+- Disable watchdog: CHƯA CHẠY
+
+LOG:
+[11:52:59] Kết nối UART: FAIL - could not open port '9': FileNotFoundError(2, 'The system cannot find the file specified.', None, 2)

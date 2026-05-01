@@ -80,7 +80,7 @@ module uart_protocol #(
     reg [7:0]  pending_resp_len_r;
     reg [31:0] pending_resp_data_r;
     reg        pending_resp_use_status_r;
-    reg [1:0]  pending_resp_delay_r;
+    reg [2:0]  pending_resp_delay_r; // Sửa lên 3-bit để tăng time chờ
 
     integer i;
     reg [31:0] tmp_wdata_r;
@@ -208,7 +208,7 @@ module uart_protocol #(
         input [7:0]  resp_len;
         input [31:0] resp_data;
         input        use_status;
-        input [1:0]  delay_cycles;
+        input [2:0]  delay_cycles; // Sửa lên [2:0]
         begin
             pending_resp_cmd_r        <= resp_cmd;
             pending_resp_addr_r       <= resp_addr;
@@ -245,7 +245,7 @@ module uart_protocol #(
             pending_resp_len_r        <= 8'd0;
             pending_resp_data_r       <= 32'd0;
             pending_resp_use_status_r <= 1'b0;
-            pending_resp_delay_r      <= 2'd0;
+            pending_resp_delay_r      <= 3'd0; // Sửa thành 3'd0
             tmp_wdata_r               <= 32'd0;
             tmp_rdata_r               <= 32'd0;
             tmp_len_r                 <= 8'd0;
@@ -274,8 +274,8 @@ module uart_protocol #(
                 rx_state_r       <= RX_IDLE;
                 rx_timeout_cnt_r <= 32'd0;
             end else if (pending_resp_valid_r && !resp_active_r) begin
-                if (pending_resp_delay_r != 2'd0) begin
-                    pending_resp_delay_r <= pending_resp_delay_r - 2'd1;
+                if (pending_resp_delay_r != 3'd0) begin
+                    pending_resp_delay_r <= pending_resp_delay_r - 3'd1;
                 end else begin
                     if (pending_resp_use_status_r) begin
                         prepare_ok_response(
@@ -302,10 +302,9 @@ module uart_protocol #(
                             rx_state_r    <= RX_CMD;
                             rx_chk_xor_r  <= 8'd0;
                             rx_data_idx_r <= 3'd0;
-                        end else begin
-                            prepare_err_response(8'h00, ERR_BAD_SYNC);
-                            rx_state_r <= RX_IDLE;
                         end
+                        // Lờ đi các byte rác khi chưa nhận được byte đồng bộ (0x55)
+                        // Xóa nhánh else báo ERR_BAD_SYNC ở đây
                     end
 
                     RX_CMD: begin
@@ -370,7 +369,8 @@ module uart_protocol #(
                                             wr_addr_o <= rx_addr_r;
                                             wr_data_o <= tmp_wdata_r;
                                             wr_en_o   <= 1'b1;
-                                            schedule_ok_response(8'h81, ADDR_STATUS, 8'd4, 32'd0, 1'b1, 2'd2);
+                                            // Tăng delay lên 5 chu kỳ để kịp cập nhật STATUS
+                                            schedule_ok_response(8'h81, ADDR_STATUS, 8'd4, 32'd0, 1'b1, 3'd5);
                                         end
                                     end
                                 end
@@ -394,7 +394,8 @@ module uart_protocol #(
                                         prepare_err_response(rx_cmd_r, ERR_NOT_ALLOW);
                                     end else begin
                                         uart_kick_pulse_o <= 1'b1;
-                                        schedule_ok_response(8'h83, ADDR_STATUS, 8'd4, 32'd0, 1'b1, 2'd1);
+                                        // Tăng delay lên 5 chu kỳ để kịp cập nhật STATUS
+                                        schedule_ok_response(8'h83, ADDR_STATUS, 8'd4, 32'd0, 1'b1, 3'd5);
                                     end
                                 end
 
