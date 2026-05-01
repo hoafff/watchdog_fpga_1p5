@@ -549,30 +549,53 @@ def action_uart_auto_test(state: AppState) -> None:
                 rsp = dev.kick()
                 status = Status(int.from_bytes(rsp.payload, "big")) if len(rsp.payload) == 4 else dev.get_status()
                 
-                fault_txt = color("CÓ FAULT", "red") if status.fault_active else color("OK", "green")
-                print(f"  [Kick {i + 1:02d}/{kick_count}] Gửi sau {interval_ms}ms -> Trạng thái: {fault_txt}")
+                fault_txt = color("OK", "green") if not status.fault_active else color("CÓ FAULT", "red")
+                print(f"  [Kick {i + 1:02d}/{kick_count}] Gửi lệnh -> Trạng thái: {fault_txt}")
                 
                 if status.fault_active != 0 or status.wdo != 1 or status.last_kick_src != 1:
                     pass_during_kick = False
-                time.sleep(interval_s)
+                
+                # CHỈ SLEEP NẾU CHƯA PHẢI LẦN CUỐI
+                if i < kick_count - 1:
+                    time.sleep(interval_s)
+
+            # LẤY MỐC THỜI GIAN NGAY KHI VỪA KICK XONG LẦN CUỐI
+            start_wait = time.time()
+
 
             if pass_during_kick:
                 state.mark("uart_kick", "PASS", "Kick UART giữ watchdog an toàn")
             else:
                 state.mark("uart_kick", "FAIL", "Bị Fault ngay cả khi đang kick")
 
-            wait_s = max(0.3, state.twd_ms / 1000.0 + 3.0)
-            print(color(f"\n>>> ĐANG CHẠY: Dừng kick đột ngột! Đếm ngược {wait_s:.1f}s chờ Timeout sinh Fault...", "yellow"))
+            # Tính thời gian chờ tối đa = tWD + tRST + biên an toàn 1 giây
+            # --- ĐOẠN SAU: QUÉT LỖI (POLLING) ---
+           # Tính thời gian chờ tối đa = tWD + tRST + biên an toàn 1 giây
+            max_wait = (state.twd_ms + state.trst_ms) / 1000.0 + 1.0
+            print(color(f"\n>>> ĐANG CHẠY: Dừng kick! Quét liên tục để bắt lỗi (tWD={state.twd_ms}ms)...", "yellow"))
             
-            steps = 20
-            for s in range(steps + 1):
-                percent = int(s / steps * 100)
-                bar = '█' * s + '░' * (steps - s)
-                print(f"\r  Chờ đợi: [{bar}] {percent}%", end="", flush=True)
-                time.sleep(wait_s / steps)
-            print() 
+            found_fault = False
+            status_timeout = None
             
-            status_timeout = dev.get_status()
+            while (time.time() - start_wait) < max_wait:
+                status_tmp = dev.get_status()
+                elapsed = time.time() - start_wait
+                
+                sys.stdout.write(f"\r  Đang quét... {elapsed:.2f}s / {max_wait:.1f}s")
+                sys.stdout.flush()
+                
+                if status_tmp.fault_active == 1:
+                    found_fault = True
+                    status_timeout = status_tmp
+                    sys.stdout.write(f"\r  [✓] Đã sinh FAULT tại: {elapsed:.2f}s!                      \n")
+                    sys.stdout.flush()
+                    break
+                
+                time.sleep(0.05) # Quét mỗi 50ms
+                
+            if not found_fault:
+                print() 
+                status_timeout = dev.get_status()
             print_status(status_timeout)
 
             if status_timeout.fault_active == 1 and status_timeout.wdo == 0:
@@ -1070,15 +1093,19 @@ def action_write_1_to_clear_test(state: AppState) -> None:
     try:
         dev = connect_once(state)
         try:
-            # Ép lỗi nhanh
+            # 1. Ép sinh lỗi nhanh (tWD=100ms, EN=1)
             dev.write_reg(ADDR_TWD_MS, 100, 4)
             dev.write_reg(ADDR_CTRL, 0x00000003, 4)
-            time.sleep(0.2) # Chờ timeout sinh lỗi
+            time.sleep(0.3) 
             
-            print(color("1. Đã ép sinh Fault. Ghi lệnh CLR_FAULT (bit 2 = 1)...", "yellow"))
-            # Ghi 0x07 (EN=1, SRC=1, CLR=1)
-            dev.write_reg(ADDR_CTRL, 0x00000007, 4)
-            time.sleep(0.05)
+            wait_safe = 2.5 
+            print(color(f"-> Đã sinh Fault. Chờ {wait_safe}s cho hết chu kỳ Reset...", "yellow"))
+            time.sleep(wait_safe)
+            
+            print(color("2. Ghi lệnh XÓA LỖI và TẮT ENABLE (Ghi 0x04)...", "yellow"))
+            # Ghi 0x04: EN=0, SRC=1, CLR=1 (Tắt EN để không bị refault ngay lập tức)
+            dev.write_reg(ADDR_CTRL, 0x00000004, 4)
+            time.sleep(0.2)
             
             status = dev.get_status()
             ctrl_val = dev.read_reg(ADDR_CTRL, 4)
@@ -1086,15 +1113,20 @@ def action_write_1_to_clear_test(state: AppState) -> None:
             print(f"   -> Đọc lại STATUS: FAULT_ACTIVE = {status.fault_active}")
             print(f"   -> Đọc lại CTRL  : 0x{ctrl_val:08X}")
             
+            # Điều kiện PASS: FAULT_ACTIVE phải về 0 và bit CLR trong CTRL phải tự về 0
             if status.fault_active == 0 and (ctrl_val & 0x04) == 0:
-                print(color("=> PASS: Hardware đã xóa lỗi và TỰ ĐỘNG XÓA BIT CLR_FAULT về 0!", "green"))
+                print(color("=> PASS: Hardware đã xóa lỗi và tự động reset bit CLR!", "green"))
             else:
-                print(color("=> FAIL: Thanh ghi không hoạt động đúng chuẩn Write-1-to-Clear.", "red"))
+                print(color("=> FAIL: Lỗi vẫn chưa được xóa hoặc bit CLR không tự reset.", "red"))
+                
+            # Trả lời lại cấu hình cũ để không ảnh hưởng các test khác
+            dev.write_reg(ADDR_TWD_MS, state.twd_ms, 4)
+            dev.write_reg(ADDR_CTRL, 0x00000000, 4) # Tắt hẳn
+            
         finally:
             dev.close()
     except Exception as e:
         print(color(f"\n[!] LỖI: {handle_serial_error(e)}", "red"))
-
 
 def action_time_sweep_test(state: AppState) -> None:
     print(color("\n[TIME SWEEP] Quét dải thời gian tWD (200ms -> 1000ms)", "cyan"))
@@ -1191,7 +1223,7 @@ def print_menu(state: AppState) -> None:
     lines = [
         f"Port {color(state.port, 'cyan')}  |  Baud {state.baud}  |  "
         f"tWD {color(str(state.twd_ms) + ' ms', 'yellow')}  |  "
-        f"tRST {state.trst_ms} ms",
+        f"tRST {state.trst_ms} ms  |  arm {state.arm_us} us",
         f"Tiến độ: {color(str(done) + '/' + str(total) + ' PASS', 'green')}"
         + (f"  |  {color(str(failed) + ' FAIL', 'red')}" if failed else ""),
         ""
