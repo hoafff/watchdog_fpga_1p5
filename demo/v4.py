@@ -136,6 +136,15 @@ class AppState:
             ("timeout", "Dừng kick sinh fault"),
             ("clear_fault", "Xóa fault"),
             ("disable", "Disable watchdog"),
+            # --- BỔ SUNG CÁC TEST NÂNG CAO TẠI ĐÂY ---
+            ("reg_dump", "Register Dump"),
+            ("boundary_test", "Boundary Stress Test"),
+            ("fault_inject", "UART Fault Injection"),
+            ("soak_test", "Overnight Soak Test"),
+            ("arm_delay", "Arm Delay Test"),
+            ("uart_fuzz", "UART Fuzzing Test"),
+            ("w1c_test", "Write-1-to-Clear Test"),
+            ("time_sweep", "Time Sweep Test"),
         ]:
             self.results.setdefault(key, TestResult(name=name))
 
@@ -864,6 +873,9 @@ def save_report(state: AppState) -> str:
 # ==========================================
 # CÁC TÍNH NĂNG ĐÁNH GIÁ ĐỘ TIN CẬY (NÂNG CAO)
 # ==========================================
+# ==========================================
+# CÁC TÍNH NĂNG ĐÁNH GIÁ ĐỘ TIN CẬY (NÂNG CAO)
+# ==========================================
 
 def action_register_dump(state: AppState) -> None:
     print(color("\n[REGISTER DUMP] Đọc toàn bộ Memory Map", "cyan"))
@@ -887,18 +899,28 @@ def action_register_dump(state: AppState) -> None:
             f"0x10 [STATUS]     : 0x{status.raw:08X} (EN={status.en_effective}, FAULT={status.fault_active}, SRC={status.last_kick_src_name})"
         ]
         print_box("KẾT QUẢ REGISTER DUMP", lines)
+        
+        # Đánh dấu PASS khi lấy được dữ liệu
+        state.mark("reg_dump", "PASS", "Đã lấy Memory Map thành công")
+        
     except Exception as e:
-        print(color(f"\n[!] LỖI: {handle_serial_error(e)}", "red"))
+        msg = handle_serial_error(e)
+        state.mark("reg_dump", "FAIL", msg)
+        print(color(f"\n[!] LỖI: {msg}", "red"))
 
 def action_boundary_stress_test(state: AppState) -> None:
     print(color("\n[BOUNDARY STRESS TEST] Kiểm thử biên thời gian tWD", "cyan"))
     twd = state.twd_ms
     if twd < 200:
         print(color("tWD quá nhỏ để test biên (<200ms). Hãy cấu hình lại.", "yellow"))
+        state.mark("boundary_test", "CHƯA CHẠY", "tWD < 200ms, không đủ điều kiện test") 
         return
         
     test_safe = twd - 50
     test_fail = twd + 50
+    
+    pass_b1 = False
+    pass_b2 = False
     
     try:
         dev = connect_once(state)
@@ -913,6 +935,7 @@ def action_boundary_stress_test(state: AppState) -> None:
             status = dev.get_status()
             if status.fault_active == 0:
                 print(color("=> PASS: Bộ đếm thời gian IC cực chuẩn, không bị fault oan.", "green"))
+                pass_b1 = True
             else:
                 print(color("=> FAIL: Bị fault quá sớm!", "red"))
                 
@@ -927,16 +950,26 @@ def action_boundary_stress_test(state: AppState) -> None:
             status = dev.get_status()
             if status.fault_active == 1:
                 print(color("=> PASS: IC bắt lỗi Timeout chính xác khi trễ deadline.", "green"))
+                pass_b2 = True
             else:
                 print(color("=> FAIL: Đã trễ deadline nhưng không báo fault!", "red"))
+                
+            # Cập nhật kết quả cuối cùng
+            if pass_b1 and pass_b2:
+                state.mark("boundary_test", "PASS", "Vượt qua test biên an toàn và trễ")
+            else:
+                state.mark("boundary_test", "FAIL", "Sai số thời gian vượt mức cho phép")
                 
         finally:
             dev.close()
     except Exception as e:
-        print(color(f"\n[!] LỖI: {handle_serial_error(e)}", "red"))
+        msg = handle_serial_error(e)
+        state.mark("boundary_test", "FAIL", msg)
+        print(color(f"\n[!] LỖI: {msg}", "red"))
 
 def action_fault_injection(state: AppState) -> None:
     print(color("\n[FAULT INJECTION] Bơm nhiễu/lỗi gói tin UART", "cyan"))
+    pass_count = 0
     try:
         dev = connect_once(state)
         try:
@@ -945,6 +978,7 @@ def action_fault_injection(state: AppState) -> None:
             dev.ser.flush()
             time.sleep(0.5) 
             print("=> PASS: Firmware bắt rác tốt, đã lờ đi gói tin (Không bị treo).")
+            pass_count += 1
             
             print(color("\n2. Cố tình gửi sai Checksum...", "yellow"))
             frame = bytearray(build_frame(CMD_KICK, 0x00, b""))
@@ -955,10 +989,12 @@ def action_fault_injection(state: AppState) -> None:
                 rsp = dev.read_response()
                 if not rsp.ok and rsp.error_code == 0x03:
                     print(color("=> PASS: IC phát hiện Checksum Error (0x03).", "green"))
+                    pass_count += 1
                 else:
                     print(color("=> FAIL: Phản hồi không đúng kỳ vọng.", "red"))
             except Exception as e:
                  print(color("=> PASS: IC không thèm phản hồi / Timeout.", "green"))
+                 pass_count += 1
                  
             print(color("\n3. Hack đọc địa chỉ cấm (0x99)...", "yellow"))
             try:
@@ -967,17 +1003,26 @@ def action_fault_injection(state: AppState) -> None:
             except RuntimeError as e:
                 if "invalid address" in str(e).lower() or "0x04" in str(e):
                      print(color("=> PASS: IC chặn đứng quyền truy cập, báo lỗi 0x04 Invalid Address.", "green"))
+                     pass_count += 1
                 else:
                      print(color(f"=> Lỗi khác: {e}", "yellow"))
+                     
+            if pass_count == 3:
+                state.mark("fault_inject", "PASS", "Vượt qua 3 bài test tiêm lỗi")
+            else:
+                state.mark("fault_inject", "FAIL", f"Chỉ vượt qua {pass_count}/3 bài test")
+                
         finally:
             dev.close()
     except Exception as e:
-        print(color(f"\n[!] LỖI: {handle_serial_error(e)}", "red"))
+        msg = handle_serial_error(e)
+        state.mark("fault_inject", "FAIL", msg)
+        print(color(f"\n[!] LỖI: {msg}", "red"))
 
 def action_soak_test(state: AppState) -> None:
     print(color("\n[SOAK TEST] Ngâm thiết bị (Chạy bền bỉ qua đêm)", "cyan"))
     print("Mạch sẽ tự động Kick liên tục để kiểm tra khả năng tràn bộ nhớ hoặc treo.")
-    print("Nhấn Ctrl+C để kết thúc bài test.\n")
+    print("Nhấn Ctrl+C để kết thúc bài test và lưu kết quả.\n")
     
     kick_interval = max(0.1, state.twd_ms / 3000.0)
     kick_count = fault_count = err_count = 0
@@ -1018,12 +1063,14 @@ def action_soak_test(state: AppState) -> None:
             
     except KeyboardInterrupt:
         print(color("\n\nĐã dừng Soak Test.", "yellow"))
+        if fault_count == 0 and err_count == 0 and kick_count > 0:
+            state.mark("soak_test", "PASS", f"Chạy {kick_count} lần OK, Uptime: {run_time}")
+        else:
+             state.mark("soak_test", "FAIL", f"Kicks: {kick_count}, Lỗi Fault: {fault_count}, Lỗi UART: {err_count}")
     finally:
         if dev:
             try: dev.close()
             except: pass
-
-
 
 def action_arm_delay_test(state: AppState) -> None:
     print(color("\n[ARM DELAY TEST] Kiểm tra cửa sổ mù (Ignore WDI)", "cyan"))
@@ -1049,8 +1096,10 @@ def action_arm_delay_test(state: AppState) -> None:
             status = dev.get_status()
             if status.fault_active == 1:
                 print(color("=> PASS: IC đã phớt lờ lệnh Kick trong cửa sổ arm_delay. Fault được sinh ra đúng kỳ vọng!", "green"))
+                state.mark("arm_delay", "PASS", "Lệnh Kick trong cửa sổ mù bị phớt lờ chuẩn xác")
             else:
                 print(color("=> FAIL: Lỗi! IC đã nhận lệnh Kick trong thời gian arm_delay.", "red"))
+                state.mark("arm_delay", "FAIL", "Arm delay không có tác dụng")
                 
             # Trả lại cấu hình cũ
             dev.write_reg(ADDR_ARM_DELAY_US, state.arm_us, 2)
@@ -1058,8 +1107,9 @@ def action_arm_delay_test(state: AppState) -> None:
         finally:
             dev.close()
     except Exception as e:
-        print(color(f"\n[!] LỖI: {handle_serial_error(e)}", "red"))
-
+        msg = handle_serial_error(e)
+        state.mark("arm_delay", "FAIL", msg)
+        print(color(f"\n[!] LỖI: {msg}", "red"))
 
 def action_uart_fuzzing_test(state: AppState) -> None:
     print(color("\n[UART FUZZING] Ép lỗi khung truyền / Tràn Buffer", "cyan"))
@@ -1080,13 +1130,16 @@ def action_uart_fuzzing_test(state: AppState) -> None:
             try:
                 status = dev.get_status()
                 print(color(f"=> PASS: FSM của UART vẫn sống sót! Đọc Status thành công: 0x{status.raw:08X}", "green"))
+                state.mark("uart_fuzz", "PASS", "FSM không bị treo khi nhận data rác")
             except Exception as e:
                 print(color(f"=> FAIL: FPGA không phản hồi. UART FSM có thể đã bị treo/lock-up! Lỗi: {e}", "red"))
+                state.mark("uart_fuzz", "FAIL", "Bị treo FSM khi nhận frame rác")
         finally:
             dev.close()
     except Exception as e:
-        print(color(f"\n[!] LỖI: {handle_serial_error(e)}", "red"))
-
+        msg = handle_serial_error(e)
+        state.mark("uart_fuzz", "FAIL", msg)
+        print(color(f"\n[!] LỖI: {msg}", "red"))
 
 def action_write_1_to_clear_test(state: AppState) -> None:
     print(color("\n[WRITE-1-TO-CLEAR] Kiểm tra phần cứng tự động reset bit", "cyan"))
@@ -1103,7 +1156,6 @@ def action_write_1_to_clear_test(state: AppState) -> None:
             time.sleep(wait_safe)
             
             print(color("2. Ghi lệnh XÓA LỖI và TẮT ENABLE (Ghi 0x04)...", "yellow"))
-            # Ghi 0x04: EN=0, SRC=1, CLR=1 (Tắt EN để không bị refault ngay lập tức)
             dev.write_reg(ADDR_CTRL, 0x00000004, 4)
             time.sleep(0.2)
             
@@ -1113,24 +1165,31 @@ def action_write_1_to_clear_test(state: AppState) -> None:
             print(f"   -> Đọc lại STATUS: FAULT_ACTIVE = {status.fault_active}")
             print(f"   -> Đọc lại CTRL  : 0x{ctrl_val:08X}")
             
-            # Điều kiện PASS: FAULT_ACTIVE phải về 0 và bit CLR trong CTRL phải tự về 0
             if status.fault_active == 0 and (ctrl_val & 0x04) == 0:
                 print(color("=> PASS: Hardware đã xóa lỗi và tự động reset bit CLR!", "green"))
+                state.mark("w1c_test", "PASS", "Tự động reset bit CLR")
             else:
                 print(color("=> FAIL: Lỗi vẫn chưa được xóa hoặc bit CLR không tự reset.", "red"))
+                state.mark("w1c_test", "FAIL", "Bit CLR bị treo hoặc không xóa được lỗi")
                 
-            # Trả lời lại cấu hình cũ để không ảnh hưởng các test khác
+            # Trả lời lại cấu hình cũ
             dev.write_reg(ADDR_TWD_MS, state.twd_ms, 4)
             dev.write_reg(ADDR_CTRL, 0x00000000, 4) # Tắt hẳn
             
         finally:
             dev.close()
     except Exception as e:
-        print(color(f"\n[!] LỖI: {handle_serial_error(e)}", "red"))
+        msg = handle_serial_error(e)
+        state.mark("w1c_test", "FAIL", msg)
+        print(color(f"\n[!] LỖI: {msg}", "red"))
 
 def action_time_sweep_test(state: AppState) -> None:
     print(color("\n[TIME SWEEP] Quét dải thời gian tWD (200ms -> 1000ms)", "cyan"))
     print("Kiểm tra Timer Counter xem có ổn định ở các giá trị khác nhau không.")
+    
+    all_pass = True
+    fail_details = []
+    
     try:
         dev = connect_once(state)
         try:
@@ -1148,13 +1207,22 @@ def action_time_sweep_test(state: AppState) -> None:
                     print(color(f"  => PASS: Sinh Fault chính xác ở mức {twd}ms.", "green"))
                 else:
                     print(color(f"  => FAIL: Bị trễ hoặc sai số quá lớn ở {twd}ms!", "red"))
+                    all_pass = False
+                    fail_details.append(f"Lỗi ở {twd}ms")
             
+            if all_pass:
+                 state.mark("time_sweep", "PASS", "Timer chuẩn xác ở mọi mức 200-1000ms")
+            else:
+                 state.mark("time_sweep", "FAIL", ", ".join(fail_details))
+                 
             # Trả về cũ
             dev.write_reg(ADDR_TWD_MS, state.twd_ms, 4)
         finally:
             dev.close()
     except Exception as e:
-        print(color(f"\n[!] LỖI: {handle_serial_error(e)}", "red"))
+        msg = handle_serial_error(e)
+        state.mark("time_sweep", "FAIL", msg)
+        print(color(f"\n[!] LỖI: {msg}", "red"))
 
 
 

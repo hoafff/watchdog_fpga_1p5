@@ -1,0 +1,60 @@
+BÁO CÁO TEST WATCHDOG KIWI 1P5
+=============================================
+Thời gian: 2026-05-01 20:21:52
+Port    : COM9
+Baud    : 9600
+tWD_ms  : 1600
+tRST_ms : 200
+arm_us  : 150
+
+CHECKLIST:
+- Kết nối UART: PASS
+  Nạp cấu hình mặc định (tWD=1600, tRST=200)
+- Ghi cấu hình thời gian: PASS
+  tWD=1600, tRST=200, arm=150
+- Đọc trạng thái: PASS
+  STATUS=0x00000008
+- Demo nút S1/S2: PASS
+  Người dùng xác nhận từ board
+- UART kick không timeout: PASS
+  Kick UART giữ watchdog an toàn
+- Dừng kick sinh fault: PASS
+  Dừng kick thì sinh fault đúng
+- Xóa fault: PASS
+  Clear + disable
+- Disable watchdog: PASS
+  Watchdog disabled
+- Register Dump: PASS
+  Đã lấy Memory Map thành công
+- Boundary Stress Test: PASS
+  Vượt qua test biên an toàn và trễ
+- UART Fault Injection: PASS
+  Vượt qua 3 bài test tiêm lỗi
+- Overnight Soak Test: PASS
+  Chạy 32 lần OK, Uptime: 0:00:17
+- Arm Delay Test: PASS
+  Lệnh Kick trong cửa sổ mù bị phớt lờ chuẩn xác
+- UART Fuzzing Test: PASS
+  FSM không bị treo khi nhận data rác
+- Write-1-to-Clear Test: PASS
+  Tự động reset bit CLR
+- Time Sweep Test: PASS
+  Timer chuẩn xác ở mọi mức 200-1000ms
+
+LOG:
+[20:16:41] Kết nối UART: PASS - Nạp cấu hình mặc định (tWD=1600, tRST=200)
+[20:16:53] Đọc trạng thái: PASS - STATUS=0x00000008
+[20:17:17] Ghi cấu hình thời gian: PASS - tWD=1600, tRST=200, arm=150
+[20:17:41] UART kick không timeout: PASS - Kick UART giữ watchdog an toàn
+[20:17:43] Dừng kick sinh fault: PASS - Dừng kick thì sinh fault đúng
+[20:17:58] Xóa fault: PASS - Clear + disable
+[20:18:46] Demo nút S1/S2: PASS - Người dùng xác nhận từ board
+[20:18:54] Disable watchdog: PASS - Watchdog disabled
+[20:19:29] Register Dump: PASS - Đã lấy Memory Map thành công
+[20:19:41] Boundary Stress Test: PASS - Vượt qua test biên an toàn và trễ
+[20:19:49] UART Fault Injection: PASS - Vượt qua 3 bài test tiêm lỗi
+[20:20:25] Overnight Soak Test: PASS - Chạy 32 lần OK, Uptime: 0:00:17
+[20:20:28] Arm Delay Test: PASS - Lệnh Kick trong cửa sổ mù bị phớt lờ chuẩn xác
+[20:20:42] UART Fuzzing Test: PASS - FSM không bị treo khi nhận data rác
+[20:21:07] Write-1-to-Clear Test: PASS - Tự động reset bit CLR
+[20:21:39] Time Sweep Test: PASS - Timer chuẩn xác ở mọi mức 200-1000ms
